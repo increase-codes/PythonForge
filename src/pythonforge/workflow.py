@@ -15,11 +15,11 @@ class Workflow:
 
     def add_task(self, task: Task) -> None:
         """Register a valid task with a unique name."""
-        # Reject objects that do not follow the Task interface.
+        # Only Task instances can be registered.
         if not isinstance(task, Task):
             raise TypeError("Workflow only accepts Task instances.")
 
-        # Names identify tasks and connect dependencies to their producers.
+        # Task names must be unique because dependencies reference them by name.
         if any(existing.name == task.name for existing in self.tasks):
             raise ValueError(f"Duplicate task name: {task.name}")
 
@@ -27,31 +27,27 @@ class Workflow:
 
     def run(self) -> list[Any]:
         """Execute tasks in dependency order and return results in registration order."""
-        # Index tasks by name so dependency references can be checked quickly.
+        # Build a lookup so each dependency can be checked by name.
         tasks_by_name = {task.name: task for task in self.tasks}
 
-        # Detect references to tasks that were never registered.
+        # Reject dependencies that do not refer to registered tasks.
         for task in self.tasks:
             missing = [
                 name
                 for name in task.dependencies
                 if name not in tasks_by_name
             ]
-
             if missing:
                 raise ValueError(
                     f"Task '{task.name}' depends on unknown task(s): {missing}"
                 )
 
-        # Store completed results so dependent tasks can consume them.
+        # Store completed results for downstream tasks.
         results: dict[str, Any] = {}
-
-        # Initially, every registered task is waiting to execute.
         pending = {task.name: task for task in self.tasks}
 
-        # Continue until every task has completed or a dependency cycle is found.
+        # Repeatedly execute tasks whose prerequisites have all completed.
         while pending:
-            # A task is ready only when all its dependencies have results.
             ready = [
                 task
                 for task in self.tasks
@@ -59,18 +55,18 @@ class Workflow:
                 and all(name in results for name in task.dependencies)
             ]
 
-            # If nothing can run, the remaining tasks depend on one another.
+            # No ready tasks means the remaining tasks are blocked by a cycle.
             if not ready:
                 raise ValueError(
                     "Circular dependency detected among tasks: "
                     f"{list(pending)}"
                 )
 
-            # Run the currently ready tasks and save each result by task name.
             for task in ready:
+                # Pass prerequisite results in the declared dependency order.
                 inputs = [results[name] for name in task.dependencies]
                 results[task.name] = task.run(*inputs)
                 del pending[task.name]
 
-        # Preserve the original output contract, regardless of execution order.
+        # Keep output order independent of dependency execution order.
         return [results[task.name] for task in self.tasks]

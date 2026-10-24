@@ -26,3 +26,31 @@ def test_task_rejects_non_callable_function():
 
 
 
+
+def test_task_rejects_non_string_name():
+    with pytest.raises(ValueError, match="non-empty string"):
+        Task(None, lambda: 42)
+
+
+def test_task_rejects_non_list_dependencies():
+    with pytest.raises(TypeError, match="list of strings"):
+        Task("process", lambda: 42, dependencies="load")
+
+
+def test_task_rejects_empty_dependency_name():
+    with pytest.raises(ValueError, match="non-empty string"):
+        Task("process", lambda: 42, dependencies=[" "])
+
+
+def test_task_rejects_duplicate_dependencies():
+    with pytest.raises(ValueError, match="duplicates"):
+        Task("process", lambda value: value, dependencies=["load", "load"])
+
+
+def test_task_copies_dependency_list():
+    dependencies = ["load"]
+    task = Task("process", lambda value: value, dependencies=dependencies)
+
+    dependencies.append("validate")
+
+    assert task.dependencies == ["load"]
