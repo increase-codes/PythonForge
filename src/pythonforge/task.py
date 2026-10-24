@@ -4,7 +4,12 @@ from typing import Any
 
 
 class Task:
-    def __init__(self, name: str, function: Callable[[], Any]) -> None:
+    def __init__(
+        self,
+        name: str,
+        function: Callable[..., Any],
+        dependencies: list[str] | None = None,
+    ) -> None:
         if not name.strip():
             raise ValueError("Task name cannot be empty.")
 
@@ -13,6 +18,7 @@ class Task:
 
         self.name = name
         self.function = function
+        self.dependencies = dependencies or []
 
-    def run(self) -> Any:
-        return self.function()
+    def run(self, *args: Any) -> Any:
+        return self.function(*args)
