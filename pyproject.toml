@@ -8,5 +8,8 @@ version = "0.1.0"
 description = "A reusable Python workflow execution engine"
 requires-python = ">=3.13"
 
+[project.scripts]
+pythonforge = "pythonforge.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
