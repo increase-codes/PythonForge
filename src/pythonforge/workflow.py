@@ -16,7 +16,12 @@ class Workflow:
 
     def __init__(self) -> None:
         # Preserve registration order for predictable execution and results.
-        self.tasks: list[Task] = []
+        self._tasks: list[Task] = []
+
+    @property
+    def tasks(self) -> tuple[Task, ...]:
+        """Expose registered tasks as a read-only snapshot."""
+        return tuple(self._tasks)
 
     def add_task(self, task: Task) -> None:
         """Register a valid task with a unique name."""
@@ -25,20 +30,20 @@ class Workflow:
             raise TypeError("Workflow only accepts Task instances.")
 
         # Dependency references require unique task names.
-        if any(existing.name == task.name for existing in self.tasks):
+        if any(existing.name == task.name for existing in self._tasks):
             raise ValueError(f"Duplicate task name: {task.name}")
 
-        self.tasks.append(task)
+        self._tasks.append(task)
 
     def run(self) -> list[Any]:
         """Execute tasks in dependency order and return results in registration order."""
-        logger.info("Starting workflow with %d task(s).", len(self.tasks))
+        logger.info("Starting workflow with %d task(s).", len(self._tasks))
 
         # Build a lookup so each dependency can be checked by name.
-        tasks_by_name = {task.name: task for task in self.tasks}
+        tasks_by_name = {task.name: task for task in self._tasks}
 
         # Reject dependencies that do not refer to registered tasks.
-        for task in self.tasks:
+        for task in self._tasks:
             missing = [
                 name
                 for name in task.dependencies
@@ -51,13 +56,13 @@ class Workflow:
 
         # Store completed results for downstream tasks.
         results: dict[str, Any] = {}
-        pending = {task.name: task for task in self.tasks}
+        pending = {task.name: task for task in self._tasks}
 
         # Execute tasks whose prerequisites have all completed.
         while pending:
             ready = [
                 task
-                for task in self.tasks
+                for task in self._tasks
                 if task.name in pending
                 and all(name in results for name in task.dependencies)
             ]
@@ -86,7 +91,7 @@ class Workflow:
                 del pending[task.name]
 
         # Return results in registration order, regardless of execution order.
-        ordered_results = [results[task.name] for task in self.tasks]
+        ordered_results = [results[task.name] for task in self._tasks]
 
         logger.info("Workflow completed successfully.")
 

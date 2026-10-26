@@ -122,8 +122,6 @@ def test_workflow_logs_task_failure(caplog):
     assert "Task 'broken_task' failed." in caplog.text
 
 
-
-
 def test_workflow_rejects_non_task_objects():
     """Prevent objects without the Task contract from being registered."""
     workflow = Workflow()
@@ -133,9 +131,21 @@ def test_workflow_rejects_non_task_objects():
 
 
 def test_workflow_rejects_duplicate_task_names():
-    """Keep task names unique so dependency references remain unambiguous."""
+    """Reject tasks that reuse an existing task name."""
     workflow = Workflow()
     workflow.add_task(Task("load", lambda: 10))
 
     with pytest.raises(ValueError, match="Duplicate task name"):
         workflow.add_task(Task("load", lambda: 20))
+
+
+def test_workflow_exposes_tasks_as_read_only_tuple():
+    """Prevent callers from bypassing task-registration validation."""
+    workflow = Workflow()
+    workflow.add_task(Task("load", lambda: 10))
+
+    assert isinstance(workflow.tasks, tuple)
+    assert len(workflow.tasks) == 1
+
+    with pytest.raises(AttributeError):
+        workflow.tasks.append(Task("extra", lambda: 20))
