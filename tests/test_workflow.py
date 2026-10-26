@@ -1,6 +1,8 @@
 
 """Test workflow registration, dependency resolution, and failure handling."""
 
+import logging
+
 import pytest
 
 from pythonforge.task import Task
@@ -95,3 +97,26 @@ def test_workflow_stops_when_dependency_fails():
         workflow.run()
 
     assert executed == []
+
+
+def test_workflow_logs_successful_execution(caplog):
+    """Verify that workflow start and completion are logged."""
+    workflow = Workflow()
+
+    with caplog.at_level(logging.INFO, logger="pythonforge.workflow"):
+        workflow.run()
+
+    assert "Starting workflow with 0 task(s)." in caplog.text
+    assert "Workflow completed successfully." in caplog.text
+
+
+def test_workflow_logs_task_failure(caplog):
+    """Verify that failures are logged and exceptions still propagate."""
+    workflow = Workflow()
+    workflow.add_task(Task("broken_task", lambda: 1 / 0))
+
+    with caplog.at_level(logging.ERROR, logger="pythonforge.workflow"):
+        with pytest.raises(ZeroDivisionError):
+            workflow.run()
+
+    assert "Task 'broken_task' failed." in caplog.text

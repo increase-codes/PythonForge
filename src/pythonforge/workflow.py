@@ -1,16 +1,21 @@
 
 """Coordinate task registration and dependency-aware execution."""
 
+import logging
 from typing import Any
 
 from pythonforge.task import Task
+
+
+# Allow applications to configure logging for this module.
+logger = logging.getLogger(__name__)
 
 
 class Workflow:
     """Register tasks and execute them when their dependencies are ready."""
 
     def __init__(self) -> None:
-        # Keep registration order for predictable execution and result output.
+        # Preserve registration order for predictable execution and results.
         self.tasks: list[Task] = []
 
     def add_task(self, task: Task) -> None:
@@ -19,7 +24,7 @@ class Workflow:
         if not isinstance(task, Task):
             raise TypeError("Workflow only accepts Task instances.")
 
-        # Task names must be unique because dependencies reference them by name.
+        # Dependency references require unique task names.
         if any(existing.name == task.name for existing in self.tasks):
             raise ValueError(f"Duplicate task name: {task.name}")
 
@@ -27,6 +32,8 @@ class Workflow:
 
     def run(self) -> list[Any]:
         """Execute tasks in dependency order and return results in registration order."""
+        logger.info("Starting workflow with %d task(s).", len(self.tasks))
+
         # Build a lookup so each dependency can be checked by name.
         tasks_by_name = {task.name: task for task in self.tasks}
 
@@ -46,7 +53,7 @@ class Workflow:
         results: dict[str, Any] = {}
         pending = {task.name: task for task in self.tasks}
 
-        # Repeatedly execute tasks whose prerequisites have all completed.
+        # Execute tasks whose prerequisites have all completed.
         while pending:
             ready = [
                 task
@@ -63,10 +70,24 @@ class Workflow:
                 )
 
             for task in ready:
-                # Pass prerequisite results in the declared dependency order.
+                # Pass prerequisite results in their declared dependency order.
                 inputs = [results[name] for name in task.dependencies]
-                results[task.name] = task.run(*inputs)
+
+                logger.debug("Running task '%s'.", task.name)
+
+                try:
+                    results[task.name] = task.run(*inputs)
+                except Exception:
+                    # Record the traceback without suppressing the original error.
+                    logger.exception("Task '%s' failed.", task.name)
+                    raise
+
+                logger.debug("Task '%s' completed successfully.", task.name)
                 del pending[task.name]
 
-        # Keep output order independent of dependency execution order.
-        return [results[task.name] for task in self.tasks]
+        # Return results in registration order, regardless of execution order.
+        ordered_results = [results[task.name] for task in self.tasks]
+
+        logger.info("Workflow completed successfully.")
+
+        return ordered_results
